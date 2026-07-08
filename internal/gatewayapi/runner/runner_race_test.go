@@ -7,6 +7,8 @@ package runner
 
 import (
 	"context"
+	"os"
+	"path/filepath"
 	"sync"
 	"testing"
 	"time"
@@ -232,4 +234,39 @@ func TestRunnerDataRaceImmediate(t *testing.T) {
 	_ = runner.Close()
 
 	// Race window is maximized here
+}
+
+// TestRunnerTranslateDataRace reproduces envoyproxy/gateway#9445: the runner
+// translates the value from watchable, mutating Gateway status in
+// place, while watchable's coalesce goroutine deep-compares the same tree on the
+// next Store.
+func TestRunnerTranslateDataRace(t *testing.T) {
+	r, _ := setupTestRunner(t)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	require.NoError(t, r.Start(ctx))
+	t.Cleanup(func() {
+		cancel()
+		_ = r.Close()
+	})
+
+	data, err := os.ReadFile(filepath.Join("testdata", "translate_data_race.yaml"))
+	require.NoError(t, err)
+	res, err := resource.LoadResourcesFromYAMLBytes(data, true, nil)
+	require.NoError(t, err)
+	base := &resource.ControllerResourcesContext{
+		Context:   ctx,
+		Resources: &resource.ControllerResources{res},
+	}
+
+	const iterations = 10
+	for i := 0; i < iterations; i++ {
+		// Each store is a new copy, so coalesce deep-compares the previously
+		// stored tree while the translator mutates that same tree.
+		r.ProviderResources.GatewayAPIResources.Store(r.EnvoyGateway.Gateway.ControllerName, base.DeepCopy())
+	}
+
+	time.Sleep(100 * time.Millisecond)
 }

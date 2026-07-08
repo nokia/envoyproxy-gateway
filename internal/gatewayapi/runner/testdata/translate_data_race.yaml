@@ -1,0 +1,55 @@
+apiVersion: gateway.networking.k8s.io/v1
+kind: GatewayClass
+metadata:
+  name: eg
+spec:
+  controllerName: gateway.envoyproxy.io/gatewayclass-controller
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  name: gw
+  namespace: default
+spec:
+  gatewayClassName: eg
+  listeners:
+  - name: http-1
+    protocol: HTTP
+    port: 8081
+  - name: http-2
+    protocol: HTTP
+    port: 8082
+  - name: http-3
+    protocol: HTTP
+    port: 8083
+  - name: http-4
+    protocol: HTTP
+    port: 8084
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: route-1
+  namespace: default
+spec:
+  parentRefs:
+  - name: gw
+  rules:
+  - matches:
+    - path:
+        type: PathPrefix
+        value: /a
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: route-2
+  namespace: default
+spec:
+  parentRefs:
+  - name: gw
+  rules:
+  - matches:
+    - path:
+        type: PathPrefix
+        value: /b

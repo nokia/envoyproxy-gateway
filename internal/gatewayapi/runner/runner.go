@@ -236,6 +236,7 @@ func (r *Runner) subscribeAndTranslate(sub <-chan watchable.Snapshot[string, *re
 			}
 
 			val := valWrapper.Resources
+			val = val.DeepCopy()
 
 			// Add span attributes for observability
 			span.SetAttributes(
